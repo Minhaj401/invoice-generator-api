@@ -166,6 +166,35 @@ def health_check():
     })
 
 
+@api_bp.route('/status', methods=['GET'])
+def status():
+    """Status endpoint with environment information"""
+    logger.info("Status check requested")
+    
+    import sys
+    gemini_configured = bool(Config.GEMINI_API_KEY)
+    
+    return jsonify({
+        'status': 'running',
+        'service': 'Invoice Generator API',
+        'timestamp': datetime.now().isoformat(),
+        'python_version': sys.version,
+        'environment': {
+            'gemini_api_configured': gemini_configured,
+            'business_name': Config.BUSINESS_NAME,
+            'has_business_email': bool(Config.BUSINESS_EMAIL),
+            'has_business_phone': bool(Config.BUSINESS_PHONE),
+            'gst_rate': f"{Config.GST_RATE * 100}%"
+        },
+        'endpoints': {
+            'generate_invoice': '/api/generate-invoice (POST)',
+            'health': '/api/health (GET)',
+            'status': '/api/status (GET)',
+            'test_parse': '/api/test-parse (POST)'
+        }
+    })
+
+
 @api_bp.route('/test-parse', methods=['POST'])
 def test_parse():
     """
