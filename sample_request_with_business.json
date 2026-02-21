@@ -1,0 +1,20 @@
+{
+  "chats": [
+    "Hi, I'd like to order 2 large pizzas",
+    "Each pizza costs 500 rupees",
+    "I also need 3 cold drinks",
+    "The drinks are 50 rupees each",
+    "And please add 1 garlic bread for 150 rupees"
+  ],
+  "upi_id": "merchant@paytm",
+  "customer_name": "John Doe",
+  "customer_phone": "+91-9876543210",
+  "customer_email": "john@example.com",
+  
+  "_comment": "Business details are optional - they override environment variables if provided",
+  "business_name": "Pizza Palace",
+  "business_address": "456 Food Street, Bangalore - 560001",
+  "business_phone": "+91-9988776655",
+  "business_email": "orders@pizzapalace.com",
+  "business_gst": "29ABCDE1234F1Z5"
+}

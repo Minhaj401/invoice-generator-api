@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  invoice-api:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - BUSINESS_NAME=${BUSINESS_NAME}
+      - BUSINESS_ADDRESS=${BUSINESS_ADDRESS}
+      - BUSINESS_PHONE=${BUSINESS_PHONE}
+      - BUSINESS_EMAIL=${BUSINESS_EMAIL}
+      - BUSINESS_GST=${BUSINESS_GST}
+    env_file:
+      - .env
+    volumes:
+      - ./invoices:/app/invoices
+    restart: unless-stopped
