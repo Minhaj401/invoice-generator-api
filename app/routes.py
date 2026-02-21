@@ -2,6 +2,7 @@
 API Routes for Invoice Generation
 """
 
+import logging
 from flask import Blueprint, request, jsonify, send_file
 from marshmallow import ValidationError
 import io
@@ -13,6 +14,8 @@ from app.services.qr_generator import generate_upi_qr
 from app.services.pdf_generator import generate_pdf
 from app.utils.invoice_utils import get_next_invoice_number, format_date
 from config import Config
+
+logger = logging.getLogger(__name__)
 
 # Create blueprint
 api_bp = Blueprint('api', __name__, url_prefix='/api')
@@ -40,11 +43,15 @@ def generate_invoice():
         PDF file as attachment
     """
     
+    logger.info("Received invoice generation request")
+    
     try:
         # Validate request data
         try:
             data = invoice_schema.load(request.json)
+            logger.info(f"Request validated successfully. Chat messages count: {len(data['chats'])}")
         except ValidationError as err:
+            logger.warning(f"Validation failed: {err.messages}")
             return jsonify({
                 'error': 'Validation failed',
                 'details': err.messages
@@ -52,11 +59,15 @@ def generate_invoice():
         
         # Extract chat messages
         chat_messages = data['chats']
+        logger.debug(f"Chat messages: {chat_messages}")
         
         # Parse chats using AI
         try:
+            logger.info("Starting AI chat parsing with Gemini API...")
             items = parse_chats(chat_messages)
+            logger.info(f"Successfully parsed {len(items)} items from chat")
         except Exception as e:
+            logger.error(f"Failed to parse chat messages: {str(e)}", exc_info=True)
             return jsonify({
                 'error': 'Failed to parse chat messages',
                 'details': str(e)
@@ -64,6 +75,7 @@ def generate_invoice():
         
         # Check if items were extracted
         if not items:
+            logger.warning("No items found in chat messages")
             return jsonify({
                 'error': 'No items found in chat messages',
                 'details': 'Please ensure your chat messages contain item names and prices'
@@ -71,9 +83,11 @@ def generate_invoice():
         
         # Calculate totals
         totals = calculate_totals(items)
+        logger.info(f"Calculated totals - Subtotal: Rs.{totals['subtotal']}, Tax: Rs.{totals['tax']}, Total: Rs.{totals['total']}")
         
         # Generate invoice number
         invoice_number = get_next_invoice_number()
+        logger.info(f"Generated invoice number: {invoice_number}")
         
         # Prepare invoice data
         invoice_data = {
@@ -90,25 +104,31 @@ def generate_invoice():
             'business_email': data.get('business_email') or Config.BUSINESS_EMAIL,
             'business_gst': data.get('business_gst') or Config.BUSINESS_GST
         }
+        logger.info(f"Invoice prepared for customer: {data['customer_name']}")
         
         # Generate UPI QR code
         payee_name = data.get('payee_name', Config.BUSINESS_NAME)
+        logger.info(f"Generating UPI QR code for {payee_name}, amount: Rs.{totals['total']}")
         qr_code_base64 = generate_upi_qr(
             upi_id=data['upi_id'],
             amount=totals['total'],
             payee_name=payee_name,
             invoice_number=invoice_number
         )
+        logger.info("UPI QR code generated successfully")
         
         # Generate PDF
         try:
+            logger.info("Starting PDF generation...")
             pdf_bytes = generate_pdf(
                 invoice_data=invoice_data,
                 items=items,
                 totals=totals,
                 qr_code_base64=qr_code_base64
             )
+            logger.info(f"PDF generated successfully, size: {len(pdf_bytes)} bytes")
         except Exception as e:
+            logger.error(f"PDF generation failed: {str(e)}", exc_info=True)
             return jsonify({
                 'error': 'Failed to generate PDF',
                 'details': str(e)
@@ -118,6 +138,8 @@ def generate_invoice():
         pdf_buffer = io.BytesIO(pdf_bytes)
         pdf_buffer.seek(0)
         
+        logger.info(f"Successfully generated invoice {invoice_number}, sending PDF response")
+        
         return send_file(
             pdf_buffer,
             mimetype='application/pdf',
@@ -126,6 +148,7 @@ def generate_invoice():
         )
         
     except Exception as e:
+        logger.error(f"Unexpected error in invoice generation: {str(e)}", exc_info=True)
         return jsonify({
             'error': 'Internal server error',
             'details': str(e)
@@ -135,6 +158,7 @@ def generate_invoice():
 @api_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
+    logger.info("Health check requested")
     return jsonify({
         'status': 'healthy',
         'service': 'Invoice Generator API',

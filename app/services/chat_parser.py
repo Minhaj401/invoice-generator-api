@@ -5,9 +5,12 @@ Uses Google Gemini API to extract items, quantities, and prices from natural lan
 
 import json
 import re
+import logging
 from typing import List, Dict
 import google.generativeai as genai
 from config import Config
+
+logger = logging.getLogger(__name__)
 
 
 def parse_chats(chat_messages: List[str]) -> List[Dict]:
@@ -25,13 +28,16 @@ def parse_chats(chat_messages: List[str]) -> List[Dict]:
     """
     
     if not Config.GEMINI_API_KEY:
+        logger.error("Gemini API key not configured")
         raise Exception("Gemini API key not configured. Please set GEMINI_API_KEY in .env file. Get your free key from: https://makersuite.google.com/app/apikey")
     
+    logger.info("Configuring Gemini API...")
     # Configure Gemini
     genai.configure(api_key=Config.GEMINI_API_KEY)
     
     # Combine all chat messages into a single context
     chat_context = "\n".join(chat_messages)
+    logger.debug(f"Chat context prepared: {chat_context[:100]}...")
     
     # Create prompt for Gemini
     prompt = f"""You are an expert at extracting purchase information from chat messages.
@@ -65,11 +71,14 @@ JSON array:"""
 
     try:
         # Call Gemini API
+        logger.info("Calling Gemini API (gemini-2.0-flash-exp model)...")
         model = genai.GenerativeModel('gemini-2.0-flash-exp')
         response = model.generate_content(prompt)
+        logger.info("Gemini API response received")
         
         # Extract response content
         content = response.text.strip()
+        logger.debug(f"Raw Gemini response: {content[:200]}...")
         
         # Remove markdown code blocks if present
         if "```json" in content:
@@ -88,25 +97,32 @@ JSON array:"""
             content = content[json_start:json_end + 1]
         
         # Parse JSON
+        logger.info("Parsing JSON response from Gemini...")
         items = json.loads(content)
+        logger.info(f"Successfully parsed {len(items)} items from JSON")
         
         # Validate structure
         if not isinstance(items, list):
+            logger.error(f"Response is not a list: {type(items)}")
             raise ValueError("Response is not a list")
         
-        for item in items:
+        for idx, item in enumerate(items):
             if not all(key in item for key in ['item', 'quantity', 'price']):
+                logger.error(f"Invalid item structure at index {idx}: {item}")
                 raise ValueError(f"Invalid item structure: {item}")
             
             # Ensure correct types
             item['quantity'] = int(item['quantity'])
             item['price'] = float(item['price'])
         
+        logger.info(f"All items validated successfully: {[item['item'] for item in items]}")
         return items
         
     except json.JSONDecodeError as e:
+        logger.error(f"JSON decode error: {str(e)}. Content: {content[:200]}...")
         raise Exception(f"Failed to parse Gemini response as JSON. Response: {content[:200]}... Error: {str(e)}")
     except Exception as e:
+        logger.error(f"Error parsing chats with Gemini: {str(e)}", exc_info=True)
         raise Exception(f"Error parsing chats with Gemini: {str(e)}")
 
 
@@ -120,9 +136,12 @@ def calculate_totals(items: List[Dict]) -> Dict:
     Returns:
         Dict with subtotal, gst, and total
     """
+    logger.info(f"Calculating totals for {len(items)} items...")
     subtotal = sum(item['quantity'] * item['price'] for item in items)
     gst = subtotal * Config.GST_RATE
     total = subtotal + gst
+    
+    logger.info(f"Totals calculated - Subtotal: {subtotal}, GST ({Config.GST_RATE*100}%): {gst}, Total: {total}")
     
     return {
         'subtotal': round(subtotal, 2),
