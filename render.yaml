@@ -3,10 +3,10 @@ services:
     name: invoice-generator
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn run:app
+    startCommand: gunicorn run:app --bind 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION
-        value: 3.13.5
+        value: 3.12.8
       - key: GEMINI_API_KEY
         sync: false
       - key: BUSINESS_NAME
