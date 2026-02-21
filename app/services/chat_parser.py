@@ -6,7 +6,7 @@ Uses Google Gemini API to extract items, quantities, and prices from natural lan
 import json
 import re
 from typing import List, Dict
-from google import genai
+import google.generativeai as genai
 from config import Config
 
 
@@ -27,8 +27,8 @@ def parse_chats(chat_messages: List[str]) -> List[Dict]:
     if not Config.GEMINI_API_KEY:
         raise Exception("Gemini API key not configured. Please set GEMINI_API_KEY in .env file. Get your free key from: https://makersuite.google.com/app/apikey")
     
-    # Initialize Gemini client
-    client = genai.Client(api_key=Config.GEMINI_API_KEY)
+    # Configure Gemini
+    genai.configure(api_key=Config.GEMINI_API_KEY)
     
     # Combine all chat messages into a single context
     chat_context = "\n".join(chat_messages)
@@ -65,10 +65,8 @@ JSON array:"""
 
     try:
         # Call Gemini API
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt
-        )
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        response = model.generate_content(prompt)
         
         # Extract response content
         content = response.text.strip()
